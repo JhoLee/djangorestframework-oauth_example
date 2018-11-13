@@ -9,34 +9,62 @@ https://docs.djangoproject.com/en/2.1/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/2.1/ref/settings/
 """
-
+import json
 import os
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+from django.core.exceptions import ImproperlyConfigured
 
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/2.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'pcg47c&m6s!o7n)*$bt-2r*)_o!97=nr6$3dheis&*$mx9_4c4'
+
+# SECRET KEY
+secret_file = os.path.join(BASE_DIR, '_main/secrets.json')
+
+
+def get_secret(setting):
+    with open(secret_file) as f:
+        secrets = json.loads(f.read())
+    """Get secret text"""
+
+    try:
+        return secrets[setting]
+    except KeyError:
+        error_msg = "Set the {} environment variable".format(setting)
+        raise ImproperlyConfigured(error_msg)
+
+
+SECRET_KEY = get_secret("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
 ALLOWED_HOSTS = []
 
-
 # Application definition
 
 INSTALLED_APPS = [
+    # django default apps
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    # rest_framework
+    'rest_framework',
+    'rest_framework.authtoken',
+
+    # django-rest-framework-social-oauth2
+    'oauth2_provider',
+    'social_django',
+    'rest_framework_social_oauth2',
+
 ]
 
 MIDDLEWARE = [
@@ -58,17 +86,30 @@ TEMPLATES = [
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
+                # django_default_processors
                 'django.template.context_processors.debug',
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+
+                # django-rest-framework-social-oauth2_processors
+                'social_django.context_processors.backends',
+                'social_django.context_processors.login_redirect',
             ],
         },
     },
 ]
 
-WSGI_APPLICATION = '_main.wsgi.application'
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        # for django-rest-framework-social-oauth2
+        'oauth2_provider.contrib.rest_framework.OAuth2Authentication',
+        'rest_framework_social_oauth2.authentication.SocialAuthentication',
 
+    )
+}
+
+WSGI_APPLICATION = '_main.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/2.1/ref/settings/#databases
@@ -80,6 +121,36 @@ DATABASES = {
     }
 }
 
+## Backends...
+AUTHENTICATION_BACKENDS = (
+    # Facebook OAuth2
+    # 'social_core.backends.facebook.FacebookAppOAuth2',
+    # 'social_core.backends.facebook.FacebookOAuth2',
+
+    # Google OAuth2
+    'social_core.backends.google.GoogleAppOAuth2',
+    'social_core.backends.google.GoogleOAuth2',
+
+    # django-rest-framework-social-oauth2
+    'rest_framework_social_oauth2.backends.DjangoOAuth2',
+
+    # django default
+    'django.contrib.auth.backends.ModelBackend',
+
+)
+
+# Google key configuration
+google_client_id = get_secret('GOOGLE_CLIENT_ID')
+SOCIAL_AUTH_URL_NAMESPACE = 'social'
+SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = google_client_id['web']['client_id']
+SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = google_client_id['web']['client_secret']
+SOCIAL_AUTH_GOOGLE_OAUTH2_FIELDS = ['email', 'username']
+SOCIAL_AUTH_GOOGLE_OAUTH2_IGNORE_DEFaULT_SCOPE = True
+SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = [
+    'https://www.googleapis.com/auth/plus.login',
+    'https://www.googleapis.com/auth/userinfo.email',
+    'https://www.googleapis.com/auth/userinfo.profile',
+]
 
 # Password validation
 # https://docs.djangoproject.com/en/2.1/ref/settings/#auth-password-validators
@@ -99,7 +170,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
 # https://docs.djangoproject.com/en/2.1/topics/i18n/
 
@@ -112,7 +182,6 @@ USE_I18N = True
 USE_L10N = True
 
 USE_TZ = True
-
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/2.1/howto/static-files/
